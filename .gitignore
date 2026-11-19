@@ -5,10 +5,6 @@ dist/
 # Dependencies
 node_modules/
 
-# RenderCV intermediate files (only the PDF is kept)
-cv/rendercv/output/*.typ
-.venv/
-
 # OS / editor files
 .DS_Store
 .idea/

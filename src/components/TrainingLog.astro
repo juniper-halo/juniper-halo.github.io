@@ -1,8 +1,10 @@
 ---
 // "Training log": experience drawn as a TensorBoard-style loss curve that
-// drops at every milestone. Milestones come from cv/cv.yml (education start +
-// each role's start date), so the chart updates when the CV does.
-import { education, experience, fmtRange, shortRole, toYear } from '../data/cv';
+// drops at every milestone. Milestones come from src/data/experience.ts
+// (education start + each role's start date, labelled with its chartLabel),
+// so the chart updates when the data does.
+import { education, roles } from '../data/experience';
+import { fmtRange, toYear } from '../lib/dates';
 
 const W = 1000;
 const H = 250;
@@ -16,23 +18,11 @@ const hash = (a: number, b: number) => {
 };
 const sig = (z: number) => 1 / (1 + Math.exp(-z));
 
-const school = education[0];
-const initials = (s: string) =>
-  s
-    .split(/[\s-]+/)
-    .filter((w) => /^[A-Z]/.test(w))
-    .map((w) => w[0])
-    .join('');
-
 const now = new Date();
 const tNow = now.getFullYear() + now.getMonth() / 12;
 const rawMilestones = [
-  ...(school?.start_date
-    ? [{ t: toYear(school.start_date), label: `epoch 0 · start CS @ ${initials(school.institution)}` }]
-    : []),
-  ...experience
-    .filter((e) => e.start_date)
-    .map((e) => ({ t: toYear(e.start_date!), label: shortRole(e.position) })),
+  { t: toYear(education.start), label: `epoch 0 · start CS @ ${education.short}` },
+  ...roles.map((r) => ({ t: toYear(r.start), label: r.chartLabel })),
 ].sort((a, b) => a.t - b.t);
 
 const t0 = rawMilestones[0]?.t ?? tNow - 3;
@@ -138,14 +128,14 @@ const ariaLabel = `Training-log chart: a loss curve from ${milestones[0]?.label 
 
   <ol class="roles">
     {
-      experience.map((e) => (
+      roles.map((r) => (
         <li>
-          <span class="when mono">{fmtRange(e.start_date, e.end_date)}</span>
+          <span class="when mono">{fmtRange(r.start, r.end)}</span>
           <div class="what">
             <h3>
-              {e.url ? <a href={e.url}>{e.position}</a> : e.position}
+              {r.url ? <a href={r.url}>{r.title}</a> : r.title}
             </h3>
-            {e.summary && <p>{e.summary}</p>}
+            <p>{r.summary}</p>
           </div>
         </li>
       ))

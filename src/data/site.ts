@@ -1,6 +1,5 @@
-// Site-wide settings and copy that don't belong in the CV.
-// Experience and projects come from cv/cv.yml (see src/data/cv.ts) so the
-// website and the RenderCV PDF never drift apart.
+// Site-wide settings and copy.
+// Experience, projects and their stat tiles live in src/data/experience.ts.
 
 export const site = {
   name: 'Juno Tripathi',
@@ -27,13 +26,3 @@ export const site = {
     email: 'mailto:madhavt2@illinois.edu',
   },
 } as const;
-
-// Optional headline numbers shown on a project card, keyed by the project's
-// `name` in cv/cv.yml. Projects without an entry simply show no stat tiles.
-export const projectStats: Record<string, { value: string; label: string }[]> = {
-  'ASL Transcription Service (CLIP + Django REST)': [
-    { value: '98.46%', label: 'best val. accuracy' },
-    { value: '24', label: 'classes' },
-    { value: 'B/32', label: 'CLIP ViT' },
-  ],
-};

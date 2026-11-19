@@ -1,6 +1,6 @@
 ---
-import { projects, fmtRange } from '../data/cv';
-import { projectStats } from '../data/site';
+import { projects } from '../data/experience';
+import { fmtRange } from '../lib/dates';
 ---
 
 <section class="section" id="projects" aria-labelledby="projects-title">
@@ -9,19 +9,19 @@ import { projectStats } from '../data/site';
   <div class="list">
     {
       projects.map((p) => {
-        const stats = projectStats[p.name] ?? [];
+        const stats = p.stats ?? [];
         return (
           <article class="card">
             <div class="body">
               <span class="meta mono">
-                {[p.role, fmtRange(p.start_date, p.end_date)].filter(Boolean).join(' · ')}
+                {[p.role, fmtRange(p.start, p.end)].filter(Boolean).join(' · ')}
               </span>
               <h3>{p.name}</h3>
-              {p.summary && <p>{p.summary}</p>}
-              {(p.url || p.website) && (
+              <p>{p.summary}</p>
+              {(p.code || p.website) && (
                 <div class="links mono">
                   {p.website && <a href={p.website}>project page ↗</a>}
-                  {p.url && <a href={p.url}>code ↗</a>}
+                  {p.code && <a href={p.code}>code ↗</a>}
                 </div>
               )}
             </div>

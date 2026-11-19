@@ -10,9 +10,9 @@ One page at `/` (served at `https://juniper-halo.github.io/juno/`) with, in orde
 
 1. **Sticky glass nav** (`src/components/Nav.astro`): the *only* frosted-glass surfaces are things that float above content (nav, plot tooltip). Don't put glass on content cards; it was tried and rejected.
 2. **Hero** (`Hero.astro`): name, photo, a tagline that "unmasks" word-by-word like a masked diffusion LM (30 steps, resample button), and the **live t-SNE plot** (`LatentPlot.astro`: canvas background stream + real points as focusable buttons with glass tooltips, nearest-neighbour lines from "query: juno").
-3. **Training log** (`TrainingLog.astro`): experience as a TensorBoard-style loss curve. Milestones = education start + each role's `start_date` from `cv/cv.yml`. A time cursor replays the run when scrolled into view; then the tail flickers "live". The role list underneath also comes from `cv/cv.yml`.
-4. **Projects** (`Projects.astro`): from `cv/cv.yml` `Projects`, with optional stat tiles from `projectStats` in `src/data/site.ts`.
-5. **In my context window** (`Reading.astro`): from `src/data/reading.yml`.
+3. **Training log** (`TrainingLog.astro`): experience as a TensorBoard-style loss curve. Milestones = `education.start` + each role's `start` from `src/data/experience.ts`, labelled with the role's `chartLabel`. A time cursor replays the run when scrolled into view; then the tail flickers "live". The role list underneath also comes from `roles`.
+4. **Projects** (`Projects.astro`): from `projects` in `src/data/experience.ts`, with optional stat tiles from each project's `stats`.
+5. **In my context window** (`Reading.astro`): from `src/data/reading.ts`.
 6. **Footer**: off-hours line + links.
 
 Other routes: `/cv/` (meta-refresh to the resume PDF, so the old URL works) and a themed `404`.
@@ -21,16 +21,17 @@ Visual direction ("Latent Space", dark only): near-black background, Space Grote
 
 ## 2. Single sources of truth
 
-| Content                       | File                                                       |
-| ----------------------------- | ---------------------------------------------------------- |
-| Experience, projects, dates   | `cv/cv.yml` (RenderCV format, parsed by `src/data/cv.ts`)  |
-| Name, tagline, intro, links   | `src/data/site.ts`                                         |
-| Reading list                  | `src/data/reading.yml`                                     |
-| t-SNE points / clusters       | `src/data/latent.ts` (hand-placed; owner may replace with real embeddings) |
-| Photo                         | `src/assets/img/profile_pic.png` (optimised via `astro:assets`) |
-| Resume PDF                    | `public/assets/pdf/resume_juno_latest.pdf` (URL kept from the old site) |
+| Content                              | File                                                       |
+| ------------------------------------ | ---------------------------------------------------------- |
+| Education, roles, projects, stats    | `src/data/experience.ts` (typed `Education`, `Role[]`, `Project[]`) |
+| Name, tagline, intro, links          | `src/data/site.ts`                                         |
+| Reading list                         | `src/data/reading.ts` (typed `ReadingItem[]`)              |
+| Date formatting (`fmtDate`, `fmtRange`, `toYear`) | `src/lib/dates.ts`                            |
+| t-SNE points / clusters              | `src/data/latent.ts` (hand-placed; owner may replace with real embeddings) |
+| Photo                                | `src/assets/img/profile_pic.png` (optimised via `astro:assets`) |
+| Resume PDF                           | `public/assets/pdf/resume_juno_latest.pdf` (URL kept from the old site; LaTeX source in `cv/resume_juno_latest.tex`, compiled by hand) |
 
-Never duplicate CV content into components. **Don't add site-only keys to `cv/cv.yml`**: RenderCV validates it strictly; put extras in `src/data/site.ts`.
+All content is typed TypeScript data; never duplicate it into components. Dates are `'YYYY-MM'` strings and an omitted `end` means ongoing. To add a field, add it to the interface in the data file first so `npm run check` catches mistakes.
 
 ## 3. Rules that bite
 
@@ -38,7 +39,7 @@ Never duplicate CV content into components. **Don't add site-only keys to `cv/cv
 - **Glass CSS:** write only `backdrop-filter`, never also `-webkit-backdrop-filter`; with both, the minifier keeps only the prefixed one and Chrome loses the blur.
 - **Motion:** every animation must (a) pause when off-screen / tab hidden, and (b) be skipped for `prefers-reduced-motion`, leaving the server-rendered final state. The page must still read fine without JS.
 - **Accessibility:** real `<button>`/`<a>`, visible focus, text contrast ≥ 4.5:1; keep `aria-label`s on the plot points and the chart.
-- **No new dependencies** without a reason; current deps are `astro`, `yaml`, two `@fontsource` packages.
+- **No new dependencies** without a reason; current deps are `astro` and two `@fontsource` packages.
 - Keep it one page unless the owner asks for more.
 
 ## 4. Commands
@@ -57,9 +58,8 @@ Verify visual changes in a real browser at desktop (1280px) and phone (390px) wi
 
 ## 5. CI / deployment
 
-- `.github/workflows/deploy.yml`: on every push/PR: `npm ci`, `npm run check`, `npm run build`. On `main` only, publishes `dist/` to the **`gh-pages`** branch (Pages source = "Deploy from a branch", `gh-pages`, root). `public/.nojekyll` must stay, or Pages hides `_astro/`.
-- `.github/workflows/render-cv.yml`: on `main` changes to `cv/cv.yml` or `cv/rendercv/*.yaml`, renders the PDF with RenderCV (`cv/requirements.txt`) into `cv/rendercv/output/` and commits it.
+- `.github/workflows/deploy.yml` (the only workflow): on every push/PR: `npm ci`, `npm run check`, `npm run build`. On `main` only, publishes `dist/` to the **`gh-pages`** branch (Pages source = "Deploy from a branch", `gh-pages`, root). `public/.nojekyll` must stay, or Pages hides `_astro/`.
 
 ## 6. What NOT to commit
 
-Obey `.gitignore` (`dist/`, `.astro/`, `node_modules/`, RenderCV `.typ` intermediates, OS/editor files, `.env*`). Never commit secrets.
+Obey `.gitignore` (`dist/`, `.astro/`, `node_modules/`, OS/editor files, `.env*`). Never commit secrets.
