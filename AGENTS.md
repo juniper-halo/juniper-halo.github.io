@@ -29,7 +29,7 @@ Visual direction ("Latent Space", dark only): near-black background, Space Grote
 | Date formatting (`fmtDate`, `fmtRange`, `toYear`) | `src/lib/dates.ts`                            |
 | t-SNE points / clusters              | `src/data/latent.ts` (hand-placed; owner may replace with real embeddings) |
 | Photo                                | `src/assets/img/profile_pic.png` (optimised via `astro:assets`) |
-| Resume PDF                           | `public/assets/pdf/resume_juno_latest.pdf` (URL kept from the old site; LaTeX source in `cv/resume_juno_latest.tex`, compiled by hand) |
+| Resume PDF                           | `public/assets/pdf/resume_juno_latest.pdf` (URL kept from the old site; its source is kept outside this repo, so just replace the file) |
 
 All content is typed TypeScript data; never duplicate it into components. Dates are `'YYYY-MM'` strings and an omitted `end` means ongoing. To add a field, add it to the interface in the data file first so `npm run check` catches mistakes.
 
