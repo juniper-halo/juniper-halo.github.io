@@ -1,0 +1,389 @@
+---
+import { clusters, points, query, neighbours } from '../data/latent';
+
+const colorOf = Object.fromEntries(clusters.map((c) => [c.id, c.color]));
+const config = JSON.stringify({ clusters, points, query, neighbours });
+---
+
+<figure class="plot" data-plot data-config={config}>
+  <div class="frame">
+    <canvas aria-hidden="true"></canvas>
+
+    {
+      clusters.map((c) => (
+        <span class="cluster mono" style={`left:${c.labelX}%;top:${c.labelY}%;color:var(${c.color})`}>
+          {c.label}
+        </span>
+      ))
+    }
+
+    <span class="query" style={`left:${query.x}%;top:${query.y}%`} aria-hidden="true"></span>
+    <span class="query-label mono" style={`left:${query.x - 4}%;top:${query.y + 4}%`}>{query.label}</span>
+
+    {
+      points.map((p) => (
+        <button
+          type="button"
+          class="pt"
+          data-id={p.id}
+          data-kind={p.kind}
+          data-label={p.label}
+          style={`left:${p.x}%;top:${p.y}%;--c:var(${colorOf[p.cluster]})`}
+          aria-label={`${p.kind}: ${p.label}`}
+        >
+          <span class="dot" />
+        </button>
+      ))
+    }
+
+    <div class="tip glass" role="tooltip" hidden>
+      <span class="kind mono"></span>
+      <span class="label"></span>
+    </div>
+  </div>
+  <figcaption class="mono">
+    <span><span class="live-dot">●</span> <span data-status>t-SNE of my interests</span></span>
+    <span>hover a point · dashed = nearest neighbours</span>
+  </figcaption>
+</figure>
+
+<style>
+  .plot {
+    flex: 1 1 440px;
+    min-width: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .frame {
+    position: relative;
+    height: 460px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    overflow: hidden;
+    background-color: var(--surface);
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 44px 44px;
+  }
+  @media (max-width: 640px) {
+    .frame {
+      height: 360px;
+    }
+  }
+  canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+  .cluster {
+    position: absolute;
+    font-size: 12px;
+    transition: opacity 0.6s ease;
+  }
+  .query {
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+  .query-label {
+    position: absolute;
+    font-size: 12px;
+    color: #fff;
+    background: var(--bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    pointer-events: none;
+    transition: opacity 0.6s ease;
+  }
+  html.js .plot:not(.is-settled) :is(.cluster, .query-label) {
+    opacity: 0;
+  }
+  .pt {
+    position: absolute;
+    width: 32px;
+    height: 32px;
+    transform: translate(-50%, -50%);
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .dot {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: var(--c);
+    box-shadow:
+      0 0 0 3px var(--surface),
+      0 0 0 4px var(--c);
+    transition:
+      width 0.15s ease,
+      height 0.15s ease;
+  }
+  .pt:hover .dot,
+  .pt:focus-visible .dot,
+  .pt.is-active .dot {
+    width: 16px;
+    height: 16px;
+  }
+  .pt:focus-visible {
+    outline: none;
+  }
+  .tip {
+    position: absolute;
+    transform: translate(-50%, calc(-100% - 18px));
+    pointer-events: none;
+    white-space: nowrap;
+    padding: 10px 14px;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    z-index: 2;
+  }
+  .tip[hidden] {
+    display: none;
+  }
+  .tip .kind {
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .tip .label {
+    font-size: 15px;
+    font-weight: 500;
+    color: #fff;
+  }
+  figcaption {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 6px 16px;
+    font-size: 12px;
+    color: var(--faint);
+  }
+  .live-dot {
+    color: var(--accent);
+  }
+</style>
+
+<script>
+  import type { Cluster, LatentPoint } from '../data/latent';
+
+  interface Config {
+    clusters: Cluster[];
+    points: LatentPoint[];
+    query: { x: number; y: number; label: string };
+    neighbours: { to: string; score: number }[];
+  }
+
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
+  const hash = (a: number, b: number) => {
+    const v = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453;
+    return v - Math.floor(v);
+  };
+
+  const OPTIMISE_S = 3; // "t-SNE optimisation" intro
+  const SETTLED_T = 4; // time used for the static (reduced-motion) frame
+
+  function setup(root: HTMLElement) {
+    const cfg = JSON.parse(root.dataset.config ?? '{}') as Config;
+    const frame = root.querySelector<HTMLElement>('.frame')!;
+    const canvas = root.querySelector('canvas')!;
+    const ctx = canvas.getContext('2d')!;
+    const tip = root.querySelector<HTMLElement>('.tip')!;
+    const status = root.querySelector<HTMLElement>('[data-status]')!;
+    const css = getComputedStyle(root);
+    const colour = (v: string) => css.getPropertyValue(v).trim() || '#fff';
+    const clusterById = new Map(cfg.clusters.map((c) => [c.id, { ...c, rgb: colour(c.color) }]));
+    const buttons = new Map<string, HTMLButtonElement>();
+    root.querySelectorAll<HTMLButtonElement>('.pt').forEach((b) => buttons.set(b.dataset.id!, b));
+
+    let w = 0;
+    let h = 0;
+    let t = 0; // animation clock in seconds (only advances while visible)
+    let active: string | null = null;
+    let lastStatus = '';
+    const pos = new Map<string, { x: number; y: number }>();
+
+    const particleCount = () => (w < 520 ? 60 : 90);
+
+    function resize() {
+      const r = frame.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      w = r.width;
+      h = r.height;
+      canvas.width = Math.round(w * dpr);
+      canvas.height = Math.round(h * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      draw();
+    }
+
+    function draw() {
+      const p = clamp(t / OPTIMISE_S, 0, 1);
+      const ease = 1 - Math.pow(1 - p, 3);
+      const drift = (i: number, axis: number) => 0.45 * Math.sin(t * 0.9 + i * 1.7 + axis * 2.1);
+      const X = (v: number) => (v / 100) * w;
+      const Y = (v: number) => (v / 100) * h;
+      ctx.clearRect(0, 0, w, h);
+
+      // Background embeddings: each particle lives 6–12 s, drifts in from
+      // outside its cluster, settles, fades out and respawns elsewhere.
+      let streamed = 0;
+      const clusterList = [...clusterById.values()];
+      for (let i = 0; i < particleCount(); i++) {
+        const L = 6 + hash(i, 1) * 6;
+        const life = t + hash(i, 2) * L;
+        const gen = Math.floor(life / L);
+        const age = (life % L) / L;
+        // Count only embeddings that arrived after the layout settled.
+        streamed += Math.max(0, gen - Math.floor((OPTIMISE_S + hash(i, 2) * L) / L));
+        const cl = clusterList[i % clusterList.length];
+        const gx = (hash(i * 3 + gen, 3) + hash(i * 5 + gen, 4) + hash(i * 7 + gen, 5) - 1.5) / 1.5;
+        const gy = (hash(i * 11 + gen, 6) + hash(i * 13 + gen, 7) + hash(i * 17 + gen, 8) - 1.5) / 1.5;
+        let x = cl.x + gx * 15;
+        let y = cl.y + gy * 13;
+        const arrive = 1 - Math.pow(1 - clamp(age / 0.25, 0, 1), 2);
+        x += (x - cl.x) * 0.9 * (1 - arrive);
+        y += (y - cl.y) * 0.9 * (1 - arrive);
+        const ix = 4 + hash(i, 9) * 92;
+        const iy = 6 + hash(i, 10) * 88;
+        x = ix + (x - ix) * ease + drift(i, 0);
+        y = iy + (y - iy) * ease + drift(i, 1);
+        const fade = Math.min(1, age / 0.15, (1 - age) / 0.15);
+        ctx.globalAlpha = (0.15 + hash(i, 12) * 0.3) * fade;
+        ctx.fillStyle = cl.rgb;
+        ctx.beginPath();
+        ctx.arc(X(clamp(x, 3, 97)), Y(clamp(y, 4, 96)), (3 + hash(i, 13) * 4) / 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+
+      // Real points: start scattered, optimise into place, then drift gently.
+      cfg.points.forEach((pt, k) => {
+        const ix = 8 + hash(k + 50, 20) * 84;
+        const iy = 10 + hash(k + 50, 21) * 80;
+        const x = ix + (pt.x - ix) * ease + drift(k + 200, 0) * 0.6;
+        const y = iy + (pt.y - iy) * ease + drift(k + 200, 1) * 0.6;
+        pos.set(pt.id, { x, y });
+        const b = buttons.get(pt.id);
+        if (b) {
+          b.style.left = `${x}%`;
+          b.style.top = `${y}%`;
+        }
+      });
+
+      // Nearest-neighbour lines from the query, once the layout has settled.
+      const lineOp = clamp((t - OPTIMISE_S + 0.25) / 1, 0, 1);
+      if (lineOp > 0) {
+        ctx.setLineDash([3, 3]);
+        ctx.lineWidth = 1;
+        ctx.font = '10px "JetBrains Mono", monospace';
+        for (const nb of cfg.neighbours) {
+          const q = pos.get(nb.to);
+          if (!q) continue;
+          ctx.strokeStyle = `rgba(255,255,255,${0.45 * lineOp})`;
+          ctx.beginPath();
+          ctx.moveTo(X(cfg.query.x), Y(cfg.query.y));
+          ctx.lineTo(X(q.x), Y(q.y));
+          ctx.stroke();
+          ctx.fillStyle = `rgba(201,206,216,${lineOp})`;
+          ctx.fillText(nb.score.toFixed(2), X((cfg.query.x + q.x) / 2 + 1), Y((cfg.query.y + q.y) / 2 - 2));
+        }
+        ctx.setLineDash([]);
+      }
+
+      root.classList.toggle('is-settled', p >= 0.85);
+      if (active) placeTip(active);
+
+      const text = reduce
+        ? 't-SNE of my interests'
+        : p < 1
+          ? `t-SNE · iter ${Math.round(ease * 1000)}/1000 · KL ${(0.92 + 3.1 * (1 - ease)).toFixed(2)}`
+          : `live · ${streamed} new embeddings streamed`;
+      if (text !== lastStatus) {
+        status.textContent = text;
+        lastStatus = text;
+      }
+    }
+
+    function placeTip(id: string) {
+      const q = pos.get(id);
+      const b = buttons.get(id);
+      if (!q || !b) return;
+      tip.style.left = `${clamp(q.x, 18, 82)}%`;
+      tip.style.top = `${q.y}%`;
+      tip.querySelector('.kind')!.textContent = b.dataset.kind ?? '';
+      tip.querySelector('.label')!.textContent = b.dataset.label ?? '';
+      const c = clusterById.get(cfg.points.find((p) => p.id === id)?.cluster ?? '');
+      (tip.querySelector('.kind') as HTMLElement).style.color = c?.rgb ?? '';
+    }
+    function show(id: string) {
+      active = id;
+      buttons.forEach((b, k) => b.classList.toggle('is-active', k === id));
+      placeTip(id);
+      tip.hidden = false;
+    }
+    function hide() {
+      active = null;
+      buttons.forEach((b) => b.classList.remove('is-active'));
+      tip.hidden = true;
+    }
+    buttons.forEach((b, id) => {
+      b.addEventListener('pointerenter', () => show(id));
+      b.addEventListener('pointerleave', hide);
+      b.addEventListener('focus', () => show(id));
+      b.addEventListener('blur', hide);
+    });
+
+    new ResizeObserver(resize).observe(frame);
+
+    if (reduce) {
+      t = SETTLED_T;
+      resize();
+      return;
+    }
+
+    // Only animate while the plot is on screen and the tab is visible.
+    let onScreen = true;
+    let raf = 0;
+    let last = 0;
+    const loop = (now: number) => {
+      const dt = last ? Math.min((now - last) / 1000, 0.1) : 0;
+      last = now;
+      t += dt;
+      draw();
+      raf = requestAnimationFrame(loop);
+    };
+    const sync = () => {
+      const run = onScreen && !document.hidden;
+      if (run && !raf) {
+        last = 0;
+        raf = requestAnimationFrame(loop);
+      } else if (!run && raf) {
+        cancelAnimationFrame(raf);
+        raf = 0;
+      }
+    };
+    new IntersectionObserver((entries) => {
+      onScreen = entries.some((e) => e.isIntersecting);
+      sync();
+    }).observe(root);
+    document.addEventListener('visibilitychange', sync);
+    resize();
+    sync();
+  }
+
+  document.querySelectorAll<HTMLElement>('[data-plot]').forEach(setup);
+</script>

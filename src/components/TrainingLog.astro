@@ -1,0 +1,455 @@
+---
+// "Training log": experience drawn as a TensorBoard-style loss curve that
+// drops at every milestone. Milestones come from cv/cv.yml (education start +
+// each role's start date), so the chart updates when the CV does.
+import { education, experience, fmtRange, shortRole, toYear } from '../data/cv';
+
+const W = 1000;
+const H = 250;
+const X0 = 40;
+const X1 = 954;
+const BASE = 212;
+
+const hash = (a: number, b: number) => {
+  const v = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453;
+  return v - Math.floor(v);
+};
+const sig = (z: number) => 1 / (1 + Math.exp(-z));
+
+const school = education[0];
+const initials = (s: string) =>
+  s
+    .split(/[\s-]+/)
+    .filter((w) => /^[A-Z]/.test(w))
+    .map((w) => w[0])
+    .join('');
+
+const now = new Date();
+const tNow = now.getFullYear() + now.getMonth() / 12;
+const rawMilestones = [
+  ...(school?.start_date
+    ? [{ t: toYear(school.start_date), label: `epoch 0 · start CS @ ${initials(school.institution)}` }]
+    : []),
+  ...experience
+    .filter((e) => e.start_date)
+    .map((e) => ({ t: toYear(e.start_date!), label: shortRole(e.position) })),
+].sort((a, b) => a.t - b.t);
+
+const t0 = rawMilestones[0]?.t ?? tNow - 3;
+const t1 = Math.max(tNow, (rawMilestones.at(-1)?.t ?? tNow) + 0.25);
+const xOf = (t: number) => X0 + ((t - t0) / (t1 - t0)) * (X1 - X0);
+
+const drops = rawMilestones.slice(1).map((m) => xOf(m.t));
+const dropSize = drops.length ? 50 / drops.length : 0;
+const ys = (x: number) =>
+  46 + 100 * (1 - Math.exp(-(x - X0) / 420)) + drops.reduce((s, d) => s + dropSize * sig((x - d) / 6), 0);
+const amp = (x: number) => 12 * Math.exp(-(x - X0) / 500) + 3;
+
+const xs: number[] = [];
+for (let x = X0; x < X1; x += 6) xs.push(x);
+xs.push(X1);
+const smooth = xs.map((x) => [x, +ys(x).toFixed(1)] as const);
+const raw = xs.map((x) => [x, +(ys(x) + (hash(x, 31) - 0.5) * 2 * amp(x)).toFixed(1)] as const);
+const pts = (a: readonly (readonly [number, number])[]) => a.map(([x, y]) => `${x},${y}`).join(' ');
+
+// Place labels above the curve; if one would collide with the previous
+// label, drop it below instead.
+let prevX = -Infinity;
+let prevAbove = false;
+const milestones = rawMilestones.map((m, i) => {
+  const x = +xOf(m.t).toFixed(1);
+  const y = +ys(x).toFixed(1);
+  const above = !(x - prevX < 90 && prevAbove);
+  prevX = x;
+  prevAbove = above;
+  const anchor = i === 0 ? 'start' : x > X1 - 60 ? 'end' : 'middle';
+  return { ...m, x, y, ty: above ? y - 16 : y + 28, anchor };
+});
+
+const years: { x: number; label: number }[] = [];
+for (let y = Math.ceil(t0); y <= Math.floor(t1); y++) years.push({ x: +xOf(y).toFixed(1), label: y });
+
+const yNow = +ys(X1).toFixed(1);
+const TAIL = 9;
+const tail = xs.slice(-TAIL).map((x) => [x, +ys(x).toFixed(2), +amp(x).toFixed(2)]);
+const ariaLabel = `Training-log chart: a loss curve from ${milestones[0]?.label ?? 'start'} to now, dropping at ${milestones
+  .slice(1)
+  .map((m) => m.label)
+  .join(', ')}.`;
+---
+
+<section class="section" id="log" aria-labelledby="log-title">
+  <div class="section-head">
+    <div class="section-title"><span class="num">01</span><h2 id="log-title">Training log</h2></div>
+    <div class="legend mono">
+      <span><i class="sw raw"></i>raw</span>
+      <span><i class="sw smooth"></i>smoothed (EMA 0.9)</span>
+      <button type="button" class="pill-btn js-only" data-replay>↻ replay</button>
+    </div>
+  </div>
+
+  <div
+    class="chart is-live"
+    data-log
+    data-t0={t0}
+    data-t1={t1}
+    data-x0={X0}
+    data-x1={X1}
+    data-smooth={JSON.stringify(smooth)}
+    data-tail={JSON.stringify(tail)}
+    data-raw-prefix={pts(raw.slice(0, -TAIL))}
+  >
+    <span class="run mono" data-run>● run juno/undergrad · live</span>
+    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={ariaLabel}>
+      <defs>
+        <clipPath id="log-clip"><rect data-clip x="0" y="0" width={W} height={H}></rect></clipPath>
+      </defs>
+      {[60, 110, 160].map((y) => <line x1={X0} x2={W - 40} y1={y} y2={y} class="grid" />)}
+      <line x1={X0} x2={W - 40} y1={BASE} y2={BASE} class="axis" />
+      {years.map((yr) => <text x={yr.x} y={BASE + 22} class="tick" text-anchor="middle">{yr.label}</text>)}
+      <text x="16" y="126" class="ylabel" text-anchor="middle" transform="rotate(-90 16 126)">
+        loss = confusion about research direction
+      </text>
+
+      <g clip-path="url(#log-clip)">
+        <polyline data-raw points={pts(raw)} class="raw-line" />
+        <polyline points={pts(smooth)} class="smooth-line" />
+      </g>
+
+      <line data-cursor x1={X0} x2={X0} y1="24" y2={BASE} class="cursor" />
+      <text data-cursor-date x={X0} y="16" class="cursor-date" text-anchor="middle"></text>
+
+      {
+        milestones.map((m) => (
+          <g class="ms" data-x={m.x}>
+            <circle cx={m.x} cy={m.y} r="5" />
+            <text x={m.x} y={m.ty} text-anchor={m.anchor}>{m.label}</text>
+          </g>
+        ))
+      }
+
+      <circle data-head cx={X1} cy={yNow} r="6" class="head" />
+      <g class="now">
+        <circle cx={X1} cy={yNow} r="6" class="pulse" />
+        <text x={X1} y={yNow - 16} text-anchor="end">now</text>
+      </g>
+    </svg>
+  </div>
+
+  <ol class="roles">
+    {
+      experience.map((e) => (
+        <li>
+          <span class="when mono">{fmtRange(e.start_date, e.end_date)}</span>
+          <div class="what">
+            <h3>
+              {e.url ? <a href={e.url}>{e.position}</a> : e.position}
+            </h3>
+            {e.summary && <p>{e.summary}</p>}
+          </div>
+        </li>
+      ))
+    }
+  </ol>
+</section>
+
+<style>
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px 20px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .legend span {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .sw {
+    width: 18px;
+    height: 2px;
+    display: inline-block;
+  }
+  .sw.raw {
+    background: #4a5263;
+  }
+  .sw.smooth {
+    background: var(--accent);
+  }
+  .chart {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 14px 16px 8px;
+    background: var(--surface);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .run {
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .chart.is-live .run {
+    color: var(--accent);
+  }
+  svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    font-family: var(--font-mono);
+    overflow: visible;
+  }
+  .grid {
+    stroke: #1a1e27;
+  }
+  .axis {
+    stroke: #2a2f3a;
+  }
+  .tick,
+  .ylabel {
+    fill: var(--faint);
+  }
+  .tick {
+    font-size: 12px;
+  }
+  .ylabel {
+    font-size: 10px;
+  }
+  .raw-line {
+    fill: none;
+    stroke: #4a5263;
+    stroke-width: 1.2;
+  }
+  .smooth-line {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 2.5;
+  }
+  .cursor {
+    stroke: #fff;
+    stroke-opacity: 0.5;
+    stroke-dasharray: 2 4;
+  }
+  .cursor-date {
+    fill: #fff;
+    font-size: 12px;
+  }
+  .cursor,
+  .cursor-date {
+    opacity: 0;
+  }
+  .chart.is-replaying :is(.cursor, .cursor-date) {
+    opacity: 1;
+  }
+  .ms circle {
+    fill: var(--accent);
+    stroke: var(--surface);
+    stroke-width: 3;
+  }
+  .ms text,
+  .now text {
+    fill: var(--text);
+    font-size: 13px;
+  }
+  .ms {
+    transition: opacity 0.3s ease;
+  }
+  .ms.is-hidden {
+    opacity: 0;
+  }
+  .head {
+    fill: #fff;
+  }
+  .now {
+    opacity: 0;
+  }
+  .chart.is-live .now {
+    opacity: 1;
+  }
+  .pulse {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 2;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: pulse 1.8s ease-out infinite;
+  }
+  @keyframes pulse {
+    from {
+      transform: scale(1);
+      opacity: 0.9;
+    }
+    to {
+      transform: scale(2.8);
+      opacity: 0;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pulse {
+      animation: none;
+      opacity: 0;
+    }
+  }
+  @media (max-width: 640px) {
+    .ms text,
+    .ylabel {
+      display: none;
+    }
+  }
+
+  .roles {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border-top: 1px solid var(--line);
+  }
+  .roles li {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 32px;
+    padding: 22px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .when {
+    flex: 0 0 180px;
+    font-size: 14px;
+    color: var(--accent);
+  }
+  .what {
+    flex: 1 1 420px;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .what h3 {
+    font-size: 21px;
+    font-weight: 500;
+  }
+  .what h3 a {
+    color: inherit;
+    text-decoration-color: var(--line);
+  }
+  .what p {
+    font-size: 16px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+</style>
+
+<script>
+  // Time-flow replay: when the chart scrolls into view, a cursor sweeps from
+  // the first milestone to "now", drawing the curve behind it. Afterwards the
+  // newest stretch of the raw curve keeps flickering like a live run.
+  const DURATION = 6500;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  for (const root of document.querySelectorAll<HTMLElement>('[data-log]')) {
+    if (reduce) continue; // the server-rendered chart is already the final state
+
+    const d = root.dataset;
+    const t0 = Number(d.t0);
+    const t1 = Number(d.t1);
+    const X0 = Number(d.x0);
+    const X1 = Number(d.x1);
+    const smooth = JSON.parse(d.smooth ?? '[]') as [number, number][];
+    const tail = JSON.parse(d.tail ?? '[]') as [number, number, number][];
+    const prefix = d.rawPrefix ?? '';
+    const clip = root.querySelector<SVGRectElement>('[data-clip]')!;
+    const cursor = root.querySelector<SVGLineElement>('[data-cursor]')!;
+    const cursorDate = root.querySelector<SVGTextElement>('[data-cursor-date]')!;
+    const head = root.querySelector<SVGCircleElement>('[data-head]')!;
+    const rawLine = root.querySelector<SVGPolylineElement>('[data-raw]')!;
+    const run = root.querySelector<HTMLElement>('[data-run]')!;
+    const ms = [...root.querySelectorAll<SVGGElement>('.ms')];
+    const replayBtn = root.closest('section')?.querySelector<HTMLButtonElement>('[data-replay]');
+
+    const yAt = (x: number) => {
+      for (let i = 1; i < smooth.length; i++) {
+        const [xa, ya] = smooth[i - 1];
+        const [xb, yb] = smooth[i];
+        if (x <= xb) return ya + ((yb - ya) * (x - xa)) / (xb - xa || 1);
+      }
+      return smooth.at(-1)?.[1] ?? 0;
+    };
+    const dateAt = (x: number) => {
+      const t = t0 + ((x - X0) / (X1 - X0)) * (t1 - t0);
+      const y = Math.floor(t);
+      const m = Math.min(12, Math.floor((t - y) * 12) + 1);
+      return `${y}.${String(m).padStart(2, '0')}`;
+    };
+
+    let raf = 0;
+    let flicker: number | undefined;
+    let onScreen = false;
+    let started = false;
+
+    const setHead = (x: number) => {
+      clip.setAttribute('width', String(x));
+      cursor.setAttribute('x1', String(x));
+      cursor.setAttribute('x2', String(x));
+      cursorDate.setAttribute('x', String(x));
+      cursorDate.textContent = dateAt(x);
+      head.setAttribute('cx', String(x));
+      head.setAttribute('cy', String(yAt(x)));
+      ms.forEach((g) => g.classList.toggle('is-hidden', Number(g.dataset.x) > x + 0.5));
+    };
+
+    const stopFlicker = () => {
+      window.clearInterval(flicker);
+      flicker = undefined;
+    };
+    const startFlicker = () => {
+      if (flicker || !root.classList.contains('is-live') || !onScreen || document.hidden) return;
+      flicker = window.setInterval(() => {
+        const live = tail
+          .map(([x, y, a]) => `${x},${(y + (Math.random() - 0.5) * 2 * a).toFixed(1)}`)
+          .join(' ');
+        rawLine.setAttribute('points', `${prefix} ${live}`);
+      }, 150);
+    };
+
+    const play = () => {
+      started = true;
+      cancelAnimationFrame(raf);
+      stopFlicker();
+      root.classList.remove('is-live');
+      root.classList.add('is-replaying');
+      const begin = performance.now();
+      const step = (now: number) => {
+        const p = Math.min(1, (now - begin) / DURATION);
+        const x = X0 + (X1 - X0) * (1 - Math.pow(1 - p, 1.6));
+        setHead(x);
+        run.textContent = `▶ replaying run · ${dateAt(x)}`;
+        if (p < 1) {
+          raf = requestAnimationFrame(step);
+        } else {
+          root.classList.remove('is-replaying');
+          root.classList.add('is-live');
+          run.textContent = '● run juno/undergrad · live';
+          startFlicker();
+        }
+      };
+      raf = requestAnimationFrame(step);
+    };
+
+    // Initial (pre-scroll) state: nothing drawn yet.
+    root.classList.remove('is-live');
+    setHead(X0);
+    run.textContent = '○ scroll to replay the run';
+
+    new IntersectionObserver(
+      (entries) => {
+        onScreen = entries.some((e) => e.isIntersecting);
+        if (onScreen && !started) play();
+        if (onScreen) startFlicker();
+        else stopFlicker();
+      },
+      { threshold: 0.35 },
+    ).observe(root);
+    document.addEventListener('visibilitychange', () => (document.hidden ? stopFlicker() : startFlicker()));
+    replayBtn?.addEventListener('click', play);
+  }
+</script>

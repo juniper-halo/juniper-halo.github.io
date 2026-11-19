@@ -1,0 +1,119 @@
+---
+import { projects, fmtRange } from '../data/cv';
+import { projectStats } from '../data/site';
+---
+
+<section class="section" id="projects" aria-labelledby="projects-title">
+  <div class="section-title"><span class="num">02</span><h2 id="projects-title">Projects</h2></div>
+
+  <div class="list">
+    {
+      projects.map((p) => {
+        const stats = projectStats[p.name] ?? [];
+        return (
+          <article class="card">
+            <div class="body">
+              <span class="meta mono">
+                {[p.role, fmtRange(p.start_date, p.end_date)].filter(Boolean).join(' · ')}
+              </span>
+              <h3>{p.name}</h3>
+              {p.summary && <p>{p.summary}</p>}
+              {(p.url || p.website) && (
+                <div class="links mono">
+                  {p.website && <a href={p.website}>project page ↗</a>}
+                  {p.url && <a href={p.url}>code ↗</a>}
+                </div>
+              )}
+            </div>
+            {stats.length > 0 && (
+              <dl class="stats">
+                {stats.map((s) => (
+                  <div class="stat">
+                    <dt class="mono">{s.label}</dt>
+                    <dd>{s.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+          </article>
+        );
+      })
+    }
+  </div>
+</section>
+
+<style>
+  .list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .card {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 28px 32px;
+    padding: 32px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface-2);
+  }
+  @media (max-width: 640px) {
+    .card {
+      padding: 22px;
+    }
+  }
+  .body {
+    flex: 1 1 380px;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .meta {
+    font-size: 13px;
+    color: var(--cyan);
+  }
+  h3 {
+    font-size: clamp(24px, 4vw, 30px);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+  }
+  p {
+    font-size: 17px;
+    color: var(--muted);
+    line-height: 1.55;
+  }
+  .links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 20px;
+    font-size: 14px;
+  }
+  .stats {
+    flex: 0 1 320px;
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    align-content: start;
+  }
+  .stat {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 4px;
+  }
+  dd {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+  dt {
+    font-size: 12px;
+    color: var(--muted);
+  }
+</style>

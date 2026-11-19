@@ -1,0 +1,182 @@
+---
+import { Image } from 'astro:assets';
+import { site } from '../data/site';
+import photo from '../assets/img/profile_pic.png';
+import LatentPlot from './LatentPlot.astro';
+
+const words = site.tagline.split(/\s+/);
+const emphasis = new Set<string>(site.taglineEmphasis);
+---
+
+<section class="hero" id="top">
+  <div class="intro">
+    <div class="who">
+      <Image src={photo} alt={`Portrait of ${site.name}`} width={112} height={112} loading="eager" />
+      <span class="mono">{site.location}</span>
+    </div>
+    <h1>{site.name.split(' ')[0]}<br />{site.name.split(' ').slice(1).join(' ')}</h1>
+
+    <div class="diffusion" data-diffusion>
+      <p class="tagline">
+        {words.map((w) => <span class:list={['tok', { emph: emphasis.has(w) }]}>{w}</span>)}
+      </p>
+      <div class="controls js-only" aria-hidden="true">
+        <span class="mono">masked diffusion · step <span data-step>30</span>/30</span>
+        <span class="bar"><span data-bar></span></span>
+        <button type="button" class="pill-btn" data-resample tabindex="-1">↻ resample</button>
+      </div>
+    </div>
+
+    <p class="sub">{site.intro}</p>
+  </div>
+
+  <LatentPlot />
+</section>
+
+<style>
+  .hero {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 48px;
+    align-items: flex-start;
+  }
+  .intro {
+    flex: 1 1 420px;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    padding-top: 8px;
+  }
+  .who {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .who img {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--accent);
+  }
+  h1 {
+    font-size: clamp(56px, 9vw, 80px);
+    line-height: 0.95;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+  }
+  .tagline {
+    font-size: 22px;
+    line-height: 1.5;
+    max-width: 32ch;
+    color: var(--text-2);
+  }
+  .tok {
+    display: inline-block;
+    margin: 0 0.26em 0.18em 0;
+    padding: 0 3px;
+    border-radius: 4px;
+    transition:
+      background-color 0.18s ease,
+      color 0.18s ease;
+  }
+  .tok.emph {
+    color: var(--accent);
+  }
+  .tok.is-masked {
+    color: transparent;
+    background: var(--mask);
+  }
+  .tok.is-fresh {
+    color: var(--bg);
+    background: var(--accent);
+  }
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px 16px;
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 12px;
+  }
+  html.js .controls {
+    display: flex !important;
+  }
+  .bar {
+    width: 120px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--mask);
+    overflow: hidden;
+  }
+  .bar span {
+    display: block;
+    height: 4px;
+    width: 100%;
+    background: var(--accent);
+  }
+  .sub {
+    font-size: 17px;
+    color: var(--muted);
+    max-width: 44ch;
+  }
+</style>
+
+<script>
+  // Reveal the tagline like a masked diffusion LM: every word starts as a
+  // [MASK] block and words are unmasked in a random order over 30 steps.
+  const STEPS = 30;
+  const STEP_MS = 110;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function shuffle(n: number, seed: number): number[] {
+    let s = (seed * 7919) % 2147483647 || 1;
+    const rnd = () => ((s = (s * 16807) % 2147483647) - 1) / 2147483646;
+    return Array.from({ length: n }, (_, i) => ({ i, k: rnd() }))
+      .sort((a, b) => a.k - b.k)
+      .map((o) => o.i);
+  }
+
+  for (const root of document.querySelectorAll<HTMLElement>('[data-diffusion]')) {
+    const toks = [...root.querySelectorAll<HTMLElement>('.tok')];
+    const stepEl = root.querySelector<HTMLElement>('[data-step]');
+    const barEl = root.querySelector<HTMLElement>('[data-bar]');
+    const btn = root.querySelector<HTMLButtonElement>('[data-resample]');
+    let timer: number | undefined;
+    let seed = 11;
+
+    const run = () => {
+      window.clearInterval(timer);
+      const order = shuffle(toks.length, seed++);
+      const when: number[] = [];
+      order.forEach((idx, rank) => (when[idx] = Math.floor((rank * STEPS) / toks.length) + 1));
+      let step = 0;
+      const paint = () => {
+        toks.forEach((t, i) => {
+          t.classList.toggle('is-masked', step < when[i]);
+          t.classList.toggle('is-fresh', step === when[i]);
+        });
+        const shown = Math.min(step, STEPS);
+        if (stepEl) stepEl.textContent = String(shown);
+        if (barEl) barEl.style.width = `${(shown / STEPS) * 100}%`;
+      };
+      paint();
+      timer = window.setInterval(() => {
+        step += 1;
+        paint();
+        if (step > STEPS) window.clearInterval(timer);
+      }, STEP_MS);
+    };
+
+    if (reduce) {
+      btn?.remove();
+    } else {
+      btn?.addEventListener('click', run);
+      run();
+    }
+  }
+</script>
