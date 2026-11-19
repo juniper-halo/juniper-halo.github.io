@@ -1,5 +1,2 @@
 User-agent: *
-Disallow:
 Allow: /
-
-Sitemap: https://juniper-halo.github.io/juno/sitemap.xml
