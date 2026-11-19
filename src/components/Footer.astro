@@ -1,0 +1,35 @@
+---
+import { site } from '../data/site';
+import { url } from '../lib/url';
+---
+
+<footer class="mono">
+  <span class="off">{site.offHours}</span>
+  <div class="links">
+    <a href={site.links.github}>github</a>
+    <a href={site.links.linkedin}>linkedin</a>
+    <a href={site.links.email}>email</a>
+    <a href={url(site.cvPdf)}>cv</a>
+  </div>
+</footer>
+
+<style>
+  footer {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 16px;
+    padding-top: 32px;
+    border-top: 1px solid var(--line);
+    font-size: 14px;
+  }
+  .off {
+    color: var(--muted);
+    max-width: 60ch;
+  }
+  .links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 20px;
+  }
+</style>

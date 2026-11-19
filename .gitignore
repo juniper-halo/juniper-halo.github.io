@@ -1,15 +1,16 @@
-_site
-.bundle
-.DS_store
-.idea
-.jekyll-cache
-.jekyll-metadata
-.ruby-version
-.sass-cache
-.tweet-cache
-.venv
-assets/libs/
-assets/rendercv/rendercv_output/*.typ
-Gemfile.lock
+# Astro build output and generated types
+dist/
+.astro/
+
+# Dependencies
 node_modules/
-vendor
+
+# OS / editor files
+.DS_Store
+.idea/
+*.swp
+*.swo
+
+# Local env / secrets
+.env
+.env.*

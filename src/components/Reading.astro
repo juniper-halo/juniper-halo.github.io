@@ -1,0 +1,51 @@
+---
+import { reading } from '../data/reading';
+---
+
+<section class="section" id="reading" aria-labelledby="reading-title">
+  <div class="section-title"><span class="num">03</span><h2 id="reading-title">In my context window</h2></div>
+  <div class="grid">
+    {
+      reading.map((r) => (
+        <a class="card" href={r.url}>
+          <span class="title">{r.title}</span>
+          {r.authors && <span class="by mono">{r.authors}</span>}
+        </a>
+      ))
+    }
+  </div>
+</section>
+
+<style>
+  .grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .card {
+    flex: 1 1 320px;
+    min-width: 0;
+    padding: 24px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    color: var(--text);
+    text-decoration: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: border-color 0.2s ease;
+  }
+  .card:hover {
+    color: var(--text);
+    border-color: var(--muted);
+  }
+  .title {
+    font-size: 19px;
+    font-weight: 500;
+    line-height: 1.35;
+  }
+  .by {
+    font-size: 12px;
+    color: var(--muted);
+  }
+</style>

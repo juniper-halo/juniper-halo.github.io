@@ -1,0 +1,21 @@
+---
+// The old site had a /cv/ page; keep that URL working by forwarding to the PDF.
+import { site } from '../data/site';
+import { url } from '../lib/url';
+
+const pdf = url(site.cvPdf);
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>CV · {site.name}</title>
+    <meta http-equiv="refresh" content={`0; url=${pdf}`} />
+    <link rel="canonical" href={pdf} />
+    <meta name="robots" content="noindex" />
+  </head>
+  <body style="background:#0b0d12;color:#e8eaf0;font-family:system-ui,sans-serif;padding:24px">
+    <p>Redirecting to the <a href={pdf} style="color:#c6f432">CV (PDF)</a>…</p>
+  </body>
+</html>

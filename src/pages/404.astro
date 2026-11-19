@@ -1,0 +1,12 @@
+---
+import Base from '../layouts/Base.astro';
+import { url } from '../lib/url';
+---
+
+<Base title="404 · out of distribution">
+  <main class="container" style="min-height: 80vh; justify-content: center; gap: 20px">
+    <span class="mono" style="color: var(--accent)">404 · out of distribution</span>
+    <h1 style="font-size: clamp(40px, 7vw, 64px); letter-spacing: -0.03em">This page isn't in the training data.</h1>
+    <p><a href={url()}>← back to the latent space</a></p>
+  </main>
+</Base>
