@@ -6,7 +6,7 @@ The owner is an ML researcher, not a web developer: keep changes simple, explain
 
 ## 1. What the site is
 
-One page at `/` (served at `https://juniper-halo.github.io/juno/`) with, in order:
+One page at `/` (served at `https://juniper-halo.github.io/`, the GitHub Pages user site of the `juniper-halo.github.io` repo) with, in order:
 
 1. **Sticky glass nav** (`src/components/Nav.astro`): the *only* frosted-glass surfaces are things that float above content (nav, plot tooltip). Don't put glass on content cards; it was tried and rejected.
 2. **Hero** (`Hero.astro`): name, photo, a tagline that "unmasks" word-by-word like a masked diffusion LM (30 steps, resample button), and the **live t-SNE plot** (`LatentPlot.astro`: canvas background stream + real points as focusable buttons with glass tooltips, nearest-neighbour lines from "query: juno").
@@ -35,7 +35,7 @@ All content is typed TypeScript data; never duplicate it into components. Dates 
 
 ## 3. Rules that bite
 
-- **Base path:** the site lives under `/juno/`. Build internal URLs with `url()` from `src/lib/url.ts` (or `import.meta.env.BASE_URL`), never a leading `/`.
+- **Base path:** the site is served at the domain root (no `base` in `astro.config.mjs`). Still build internal URLs with `url()` from `src/lib/url.ts` (or `import.meta.env.BASE_URL`), never a hard-coded leading `/`, so a sub-path can be reintroduced by changing only the config.
 - **Glass CSS:** write only `backdrop-filter`, never also `-webkit-backdrop-filter`; with both, the minifier keeps only the prefixed one and Chrome loses the blur.
 - **Motion:** every animation must (a) pause when off-screen / tab hidden, and (b) be skipped for `prefers-reduced-motion`, leaving the server-rendered final state. The page must still read fine without JS.
 - **Accessibility:** real `<button>`/`<a>`, visible focus, text contrast ≥ 4.5:1; keep `aria-label`s on the plot points and the chart.
@@ -48,7 +48,7 @@ Node 24 (`.nvmrc`; Astro 7 needs ≥ 22.23.4).
 
 ```bash
 npm install
-npm run dev       # http://localhost:4321/juno/
+npm run dev       # http://localhost:4321/
 npm run check     # astro check (must be 0 errors)
 npm run build     # → dist/
 npm run preview

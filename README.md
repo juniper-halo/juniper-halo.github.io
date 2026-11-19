@@ -2,7 +2,7 @@
 
 Single-page portfolio for **Juno (Madhav) Tripathi**, built with [Astro](https://astro.build).
 
-- **Live site:** https://juniper-halo.github.io/juno/
+- **Live site:** https://juniper-halo.github.io/
 - **Look:** "latent space": a live t-SNE plot of my interests, a bio that unmasks like a masked diffusion LM, and experience drawn as a training-loss curve.
 
 ## Everyday edits (no web dev needed)
@@ -29,7 +29,7 @@ Needs Node 24 (pinned in `.nvmrc`).
 ```bash
 nvm use            # switches to Node 24
 npm install        # first time only
-npm run dev        # http://localhost:4321/juno/  (auto-reloads on save)
+npm run dev        # http://localhost:4321/  (auto-reloads on save)
 ```
 
 Before pushing, optionally run:
@@ -37,12 +37,12 @@ Before pushing, optionally run:
 ```bash
 npm run check      # type-check
 npm run build      # production build into dist/
-npm run preview    # serve dist/ at http://localhost:4321/juno/
+npm run preview    # serve dist/ at http://localhost:4321/
 ```
 
 ## Deploying
 
-Push to `main`. The **Deploy site** workflow type-checks and builds the site, then publishes `dist/` to the `gh-pages` branch, which GitHub Pages serves (Settings → Pages → Deploy from a branch → `gh-pages` / root). Pushes to other branches and PRs only check and build.
+Push to `main`. The **Deploy site** workflow type-checks and builds the site, then publishes `dist/` to the `gh-pages` branch, which GitHub Pages serves at the domain root because the repo is named `juniper-halo.github.io` (Settings → Pages → Deploy from a branch → `gh-pages` / root). Pushes to other branches and PRs only check and build.
 
 ## Project layout
 

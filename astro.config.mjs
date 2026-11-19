@@ -1,10 +1,11 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 
-// Served as a GitHub Pages *project* site: https://juniper-halo.github.io/juno/
-// Every internal link must go through `import.meta.env.BASE_URL` (see src/lib/url.ts).
+// Served as the GitHub Pages *user* site (repo juniper-halo.github.io), at the
+// domain root: https://juniper-halo.github.io/
+// Internal links still go through `url()` (src/lib/url.ts), so a sub-path can be
+// reintroduced by setting `base` here alone.
 export default defineConfig({
   site: 'https://juniper-halo.github.io',
-  base: '/juno',
   trailingSlash: 'ignore',
 });
